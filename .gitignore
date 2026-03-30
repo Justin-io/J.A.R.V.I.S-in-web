@@ -1,0 +1,78 @@
+# ========================
+# ENVIRONMENT & SECRETS
+# ========================
+.env
+.env.*
+.env.local
+.env.development
+.env.production
+.env.staging
+!.env.example
+
+# ========================
+# DEPENDENCIES
+# ========================
+node_modules/
+.pnp
+.pnp.js
+
+# ========================
+# BUILD & OUTPUT
+# ========================
+dist/
+dist-ssr/
+build/
+*.local
+
+# ========================
+# LOGS
+# ========================
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# ========================
+# OS FILES
+# ========================
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.swp
+*.swo
+*~
+
+# ========================
+# EDITOR / IDE
+# ========================
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+*.code-workspace
+
+# ========================
+# TESTING & COVERAGE
+# ========================
+coverage/
+*.lcov
+.nyc_output/
+
+# ========================
+# MISC
+# ========================
+*.tgz
+.cache/
+.parcel-cache/
+.turbo/
+.vercel/
+.netlify/
+*.pem
