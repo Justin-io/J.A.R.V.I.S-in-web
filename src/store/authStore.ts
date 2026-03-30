@@ -16,8 +16,8 @@ interface AuthState {
   initialize: () => Promise<void>;
 }
 
-const MOCK_OPERATOR_ID = '00000000-0000-0000-0000-000000000000';
-const SYSTEM_PASSWORD = import.meta.env.ID || 'ironman';
+const MOCK_OPERATOR_ID = import.meta.env.VITE_OS;
+const SYSTEM_PASSWORD = import.meta.env.VITE_ID;
 
 export const useAuthStore = create<AuthState>()(
   persist(
