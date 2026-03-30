@@ -31,9 +31,9 @@ export const NoteWidget: React.FC<{ userId: string }> = ({ userId }) => {
             <p>RECORDS ARCHIVED</p>
           </div>
         ) : (
-          notes.map((note) => (
+          notes.map((note, idx) => (
             <button 
-              key={note.id}
+              key={note.id || `note-${idx}`}
               onClick={() => setSelectedNote(note)}
               className="w-full text-left p-2 border border-primary/20 bg-primary/5 rounded-sm space-y-1 hover:bg-primary/10 transition-colors group"
             >

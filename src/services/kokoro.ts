@@ -3,6 +3,14 @@ import * as ort from 'onnxruntime-web';
 class KokoroService {
   private session: ort.InferenceSession | null = null;
   private audioContext: AudioContext | null = null;
+  private currentSource: AudioBufferSourceNode | null = null;
+
+  stop() {
+    if (this.currentSource) {
+      try { this.currentSource.stop(); } catch(e) {}
+    }
+    this.currentSource = null;
+  }
 
   async init() {
     if (this.session) return;
@@ -51,6 +59,7 @@ class KokoroService {
       const source = this.audioContext.createBufferSource();
       source.buffer = buffer;
       source.connect(this.audioContext.destination);
+      this.currentSource = source;
       source.start();
       
       await new Promise((resolve) => {

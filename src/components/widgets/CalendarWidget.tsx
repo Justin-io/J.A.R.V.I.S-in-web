@@ -20,9 +20,9 @@ export const CalendarWidget: React.FC<{ userId: string }> = ({ userId }) => {
             <p>NO EVENTS SCHEDULED FOR SIR</p>
           </div>
         ) : (
-          events.map((event) => (
+          events.map((event, i) => (
             <div 
-              key={event.id}
+              key={event.id || `event-${i}`}
               className="p-2 border-l-2 border-primary/30 bg-primary/5 rounded-r-sm space-y-1"
             >
               <p className="text-[10px] font-bold">{event.title}</p>

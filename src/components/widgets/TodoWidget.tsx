@@ -28,9 +28,9 @@ export const TodoWidget: React.FC<{ userId: string }> = ({ userId }) => {
             <p>NO ACTIVE PROTOCOLS</p>
           </div>
         ) : (
-          tasks.map((task) => (
+          tasks.map((task, i) => (
             <div 
-              key={task.id}
+              key={task.id || `task-${i}`}
               className={`
                 group flex items-start gap-2 p-2 border border-primary/10 rounded-sm hover:border-primary/30 transition-all
                 ${task.status === 'completed' ? 'opacity-50' : ''}

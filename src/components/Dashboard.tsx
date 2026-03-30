@@ -5,6 +5,7 @@ import { useVoice } from '../hooks/useVoice';
 import { CalendarWidget } from './widgets/CalendarWidget';
 import { TodoWidget } from './widgets/TodoWidget';
 import { NoteWidget } from './widgets/NoteWidget';
+import { MemoryWidget } from './widgets/MemoryWidget';
 import { NeuralCore } from './ui/NeuralCore';
 import { DigitalClock } from './ui/DigitalClock';
 import { StatusGrid } from './ui/StatusGrid';
@@ -16,6 +17,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useTodoStore } from '../store/todoStore';
 import { useNoteStore } from '../store/noteStore';
 import { useCalendarStore } from '../store/calendarStore';
+import { useMemoryStore } from '../store/memoryStore';
 
 export const Dashboard: React.FC = () => {
   const { user, signOut } = useAuthStore();
@@ -27,13 +29,16 @@ export const Dashboard: React.FC = () => {
   const { addTask, updateTask, deleteTask, clearTasks, tasks, fetchTasks } = useTodoStore();
   const { addNote, updateNote, deleteNote, clearNotes, notes, fetchNotes } = useNoteStore();
   const { addEvent, updateEvent, deleteEvent, clearEvents, events, fetchEvents } = useCalendarStore();
+  const { memories, addMemory, removeMemory, clearMemories, fetchMemories } = useMemoryStore();
   const chatEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const [chatOpen, setChatOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [inputVal, setInputVal] = useState('');
   const [dataLoaded, setDataLoaded] = useState(false);
+  const [pendingMemoryClear, setPendingMemoryClear] = useState(false);
   const booted = useRef(false);
+  const puterCheckPerformed = useRef(false);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -48,9 +53,28 @@ export const Dashboard: React.FC = () => {
         fetchTasks(user.id),
         fetchNotes(user.id),
         fetchEvents(user.id),
+        fetchMemories(user.id),
       ]).then(() => setDataLoaded(true));
     }
-  }, [user, fetchTasks, fetchNotes, fetchEvents]);
+  }, [user, fetchTasks, fetchNotes, fetchEvents, fetchMemories]);
+
+  // PUTER MOBILE AUTO-SETUP
+  useEffect(() => {
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth < 768;
+    
+    if (isMobile && !puterCheckPerformed.current) {
+      puterCheckPerformed.current = true;
+      const puter = (window as any).puter;
+      if (puter) {
+        // Check if signed in, if not, trigger a tiny "ghost" request to force the connection prompt
+        if (!puter.auth.isSignedIn()) {
+          console.log("MOBILE_AUTO_SETUP: Triggering Puter connection prompt...");
+          // Ghost request: tiny contextless prompt to trigger the 'Connect' popup
+          puter.ai.chat("ping").catch(() => {});
+        }
+      }
+    }
+  }, []);
 
   useEffect(() => {
     if (transcript) {
@@ -63,14 +87,29 @@ export const Dashboard: React.FC = () => {
   useEffect(() => {
     if (user && !booted.current && dataLoaded) {
       booted.current = true;
-      handleUserAction("System initial sequence complete. Provide a highly concise status briefing based on my current data.");
+      handleUserAction("System initialized. Give a very short, direct 1-sentence greeting. Only mention schedule/tasks if something is urgently pending. Do not list empty data.");
     }
   }, [user, dataLoaded]);
 
   const handleUserAction = async (content: string) => {
     if (!user) return;
     if (!chatOpen) setChatOpen(true);
-    const response = await sendMessage(content, user.id, { tasks, notes, events });
+
+    // VOICE CLEAR CONFIRMATION LOGIC
+    if (pendingMemoryClear) {
+      if (content.toLowerCase().includes('confirm') || content.toLowerCase().includes('yes') || content.toLowerCase().includes('proceed')) {
+        await clearMemories(user.id);
+        setPendingMemoryClear(false);
+        speak("Core memory wipe complete, Sir. I have shifted into a blank state.");
+        return;
+      } else {
+        setPendingMemoryClear(false);
+        speak("Wipe aborted. Core systems remain intact.");
+        return;
+      }
+    }
+
+    const response = await sendMessage(content, user.id, { tasks, notes, events, memories });
     console.log("JARVIS RAW RESPONSE:", response);
 
     if (response) {
@@ -86,6 +125,8 @@ export const Dashboard: React.FC = () => {
       const delTaskRegex = /\[DELETE_TASK:\s*(.*?)\]/gi;
       const delNoteRegex = /\[DELETE_NOTE:\s*(.*?)\]/gi;
       const delEventRegex = /\[DELETE_EVENT:\s*(.*?)\]/gi;
+      const memoryRegex = /\[MEMORY:\s*(.*?)\]/gi;
+      const delMemoryRegex = /\[DELETE_MEMORY:\s*(.*?)\]/gi;
 
       let match;
 
@@ -105,6 +146,10 @@ export const Dashboard: React.FC = () => {
           end_time: match[2].trim(),
           location: match[3]?.trim() || ''
         }, user.id);
+        spokenResponse = spokenResponse.replace(match[0], '');
+      }
+      while ((match = memoryRegex.exec(response)) !== null) {
+        await addMemory(match[1].trim(), user.id);
         spokenResponse = spokenResponse.replace(match[0], '');
       }
 
@@ -145,10 +190,15 @@ export const Dashboard: React.FC = () => {
         await deleteEvent(match[1].trim());
         spokenResponse = spokenResponse.replace(match[0], '');
       }
+      while ((match = delMemoryRegex.exec(response)) !== null) {
+        await removeMemory(match[1].trim());
+        spokenResponse = spokenResponse.replace(match[0], '');
+      }
 
       const clearTasksMatch = response.match(/\[CLEAR_TASKS\]/i);
       const clearNotesMatch = response.match(/\[CLEAR_NOTES\]/i);
       const clearEventsMatch = response.match(/\[CLEAR_EVENTS\]/i);
+      const clearMemoriesMatch = response.match(/\[CLEAR_MEMORIES\]/i);
 
       if (clearTasksMatch) {
         await clearTasks(user.id);
@@ -161,6 +211,10 @@ export const Dashboard: React.FC = () => {
       if (clearEventsMatch) {
         await clearEvents(user.id);
         spokenResponse = spokenResponse.replace(clearEventsMatch[0], '');
+      }
+      if (clearMemoriesMatch) {
+        setPendingMemoryClear(true);
+        spokenResponse = "Sir, I have detected a request to clear all core memories. This is a sensitive operation that will permanently erase my understanding of your preferences. Do you wish to proceed with the system wipe?";
       }
 
       speak(spokenResponse.trim());
@@ -194,7 +248,7 @@ export const Dashboard: React.FC = () => {
     : 'text-primary';
 
   return (
-    <div className="flex h-screen w-screen bg-[#020608] text-primary font-mono overflow-hidden select-none">
+    <div className="flex h-[100dvh] w-screen bg-[#020608] text-primary font-mono overflow-hidden select-none relative">
       {/* === SCANLINE + GRID OVERLAY === */}
       <div className="fixed inset-0 pointer-events-none z-0">
         <div className="absolute inset-0 opacity-[0.03] bg-[repeating-linear-gradient(0deg,transparent,transparent_2px,rgba(0,243,255,0.5)_2px,rgba(0,243,255,0.5)_3px)]" />
@@ -206,20 +260,23 @@ export const Dashboard: React.FC = () => {
         {sidebarOpen && (
           <motion.aside
             key="sidebar"
-            initial={{ x: -320, opacity: 0 }}
+            initial={{ x: -400, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
-            exit={{ x: -320, opacity: 0 }}
+            exit={{ x: -400, opacity: 0 }}
             transition={{ type: 'spring', stiffness: 260, damping: 30 }}
-            className="relative z-10 w-72 min-w-[280px] flex flex-col bg-black/60 border-r border-primary/10 backdrop-blur-md overflow-hidden"
+            className="absolute md:relative left-0 top-0 bottom-0 z-40 w-full sm:w-96 flex flex-col bg-black/95 md:bg-black/60 border-r border-primary/10 backdrop-blur-xl overflow-hidden"
           >
             {/* Sidebar Header */}
-            <div className="flex items-center justify-between px-4 py-3 border-b border-primary/10">
-              <div className="flex items-center gap-2">
-                <Terminal className="w-4 h-4 text-primary/60" />
-                <span className="text-[9px] tracking-[0.25em] uppercase text-primary/60">System Monitor</span>
+            <div className="flex items-center justify-between px-6 py-4 border-b border-primary/10">
+              <div className="flex items-center gap-3">
+                <Terminal className="w-5 h-5 text-primary/60" />
+                <span className="text-[12px] md:text-sm tracking-[0.25em] uppercase text-primary/60">System Monitor</span>
               </div>
-              <button onClick={() => setSidebarOpen(false)} className="text-primary/30 hover:text-primary/70 transition-colors p-1 rounded">
-                <ChevronLeft className="w-4 h-4" />
+              <button onClick={() => setSidebarOpen(false)} className="text-primary/30 hover:text-primary/70 transition-colors p-2 rounded bg-primary/5 hover:bg-primary/20 md:hidden">
+                <X className="w-5 h-5" />
+              </button>
+              <button onClick={() => setSidebarOpen(false)} className="hidden md:block text-primary/30 hover:text-primary/70 transition-colors p-1 rounded">
+                <ChevronLeft className="w-5 h-5" />
               </button>
             </div>
 
@@ -229,14 +286,15 @@ export const Dashboard: React.FC = () => {
             </div>
 
             {/* Widgets Section Header */}
-            <div className="px-4 py-2 bg-primary/5 flex items-center justify-between">
-              <span className="text-[7px] tracking-[0.4em] font-black text-primary/40 uppercase">Organization_Suite</span>
+            <div className="px-6 py-3 bg-primary/5 flex items-center justify-between">
+              <span className="text-[10px] tracking-[0.4em] font-black text-primary/40 uppercase">Organization_Suite</span>
             </div>
 
             {/* Widgets */}
             <div className="flex-1 overflow-y-auto p-3 space-y-3 custom-scrollbar">
               {user && (
                 <>
+                  <MemoryWidget />
                   <CalendarWidget userId={user.id} />
                   <TodoWidget userId={user.id} />
                   <NoteWidget userId={user.id} />
@@ -251,9 +309,9 @@ export const Dashboard: React.FC = () => {
       {!sidebarOpen && (
         <button
           onClick={() => setSidebarOpen(true)}
-          className="fixed left-0 top-1/2 -translate-y-1/2 z-20 bg-black/80 border border-primary/20 border-l-0 p-2 text-primary/50 hover:text-primary transition-colors rounded-r-sm"
+          className="fixed left-0 top-1/2 -translate-y-1/2 z-50 bg-black/90 border-2 border-primary/40 border-l-0 p-3 text-primary shadow-[0_0_15px_rgba(0,243,255,0.2)] hover:bg-primary/20 hover:text-white transition-colors rounded-r-md"
         >
-          <ChevronRight className="w-4 h-4" />
+          <ChevronRight className="w-6 h-6" />
         </button>
       )}
 
@@ -261,49 +319,55 @@ export const Dashboard: React.FC = () => {
       <div className="relative flex-1 flex flex-col z-10 overflow-hidden">
 
         {/* TOP NAV BAR */}
-        <header className="flex items-center justify-between px-6 py-3 border-b border-primary/10 bg-black/40 backdrop-blur-sm flex-shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="w-7 h-7 border border-primary/50 flex items-center justify-center bg-primary/5 rounded-sm">
-              <Zap className="w-4 h-4 text-primary animate-pulse" />
+        <header className="flex items-center justify-between px-6 py-4 border-b border-primary/10 bg-black/40 backdrop-blur-sm flex-shrink-0 z-20">
+          <div className="flex items-center gap-4">
+            {/* Hamburger on mobile to toggle sidebar */}
+            <button onClick={() => setSidebarOpen(v => !v)} className="md:hidden text-primary/70 border border-primary/30 p-2 rounded-md bg-primary/10">
+              <Terminal className="w-5 h-5" />
+            </button>
+            <div className="w-9 h-9 border border-primary/50 flex items-center justify-center bg-primary/5 rounded-sm">
+              <Zap className="w-6 h-6 text-primary animate-pulse" />
             </div>
             <div>
-              <h1 className="text-sm font-bold tracking-[0.35em] uppercase text-primary" style={{ textShadow: '0 0 20px rgba(0,243,255,0.5)' }}>
+              <h1 className="text-lg md:text-xl font-black tracking-[0.4em] uppercase text-primary" style={{ textShadow: '0 0 20px rgba(0,243,255,0.8)' }}>
                 JARVIS
               </h1>
-              <p className="text-[7px] text-primary/40 tracking-widest">OPERATOR: {user?.email?.split('@')[0].toUpperCase()}</p>
+              <p className="text-[10px] md:text-xs text-primary/60 tracking-widest font-bold">OPERATOR: {user?.email?.split('@')[0].toUpperCase()}</p>
             </div>
-            <div className="hidden sm:flex items-center gap-1.5 ml-4 px-2 py-1 border border-primary/10 rounded-sm bg-primary/5">
-              <span className={`w-1.5 h-1.5 rounded-full animate-pulse ${isWaitingForCommand ? 'bg-green-400' : isSpeaking ? 'bg-blue-400' : isThinking ? 'bg-yellow-400' : 'bg-primary'}`} />
-              <span className={`text-[8px] tracking-[0.2em] font-bold ${statusColor}`}>{statusLabel}</span>
+            <div className="hidden lg:flex items-center gap-2 ml-6 px-3 py-1.5 border border-primary/20 rounded-sm bg-primary/5 shadow-[0_0_10px_rgba(0,243,255,0.1)]">
+              <span className={`w-2 h-2 rounded-full animate-pulse ${isWaitingForCommand ? 'bg-green-400' : isSpeaking ? 'bg-blue-400' : isThinking ? 'bg-yellow-400' : 'bg-primary'}`} />
+              <span className={`text-[10px] tracking-[0.2em] font-bold ${statusColor}`}>{statusLabel}</span>
             </div>
           </div>
 
           <div className="flex items-center gap-6">
-            <div className="hidden md:flex items-center gap-1 text-[7px] text-primary/30 tracking-widest">
-              <Shield className="w-3 h-3" />
+            <div className="hidden xl:flex items-center gap-2 text-[10px] font-bold text-primary/40 tracking-widest">
+              <Shield className="w-4 h-4" />
               <span>AES-256 SEC_LINK</span>
             </div>
-            <DigitalClock />
+            <div className="hidden sm:block">
+               <DigitalClock />
+            </div>
             
             <div className="flex items-center gap-3">
               <button
                 onClick={() => setChatOpen(v => !v)}
-                className={`relative flex items-center gap-1.5 px-3 py-1.5 rounded-sm text-[8px] tracking-widest border transition-all ${chatOpen ? 'bg-primary/10 border-primary/40 text-primary' : 'bg-transparent border-primary/15 text-primary/50 hover:text-primary/80 hover:border-primary/30'}`}
+                className={`relative flex items-center gap-2 px-4 py-2 rounded-sm text-[10px] md:text-xs font-bold tracking-widest border transition-all ${chatOpen ? 'bg-primary/20 border-primary/60 text-white shadow-[0_0_15px_rgba(0,243,255,0.3)]' : 'bg-black/50 border-primary/30 text-primary/70 hover:text-primary hover:border-primary/50'}`}
               >
-                <MessageSquare className="w-3.5 h-3.5" />
+                <MessageSquare className="w-4 h-4 md:w-5 md:h-5" />
                 <span className="hidden sm:inline">COMMS</span>
                 {messages.length > 0 && (
-                  <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-primary text-black text-[6px] flex items-center justify-center font-bold">
+                  <span className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-primary text-black text-[9px] flex items-center justify-center font-black shadow-[0_0_10px_rgba(0,243,255,1)]">
                     {messages.length > 9 ? '9+' : messages.length}
                   </span>
                 )}
               </button>
               <button
                 onClick={signOut}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-sm text-[8px] tracking-widest border border-primary/15 text-primary/40 hover:text-red-400 hover:border-red-500/30 transition-all"
+                className="hidden sm:flex items-center gap-2 px-3 py-2 rounded-sm text-[10px] md:text-xs font-bold tracking-widest border border-primary/20 text-primary/50 hover:text-red-400 hover:border-red-500/50 hover:bg-red-500/10 transition-all"
               >
-                <LogOut className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">EXIT</span>
+                <LogOut className="w-4 h-4 md:w-5 md:h-5" />
+                <span>EXIT</span>
               </button>
             </div>
           </div>
@@ -316,6 +380,7 @@ export const Dashboard: React.FC = () => {
           <AnimatePresence>
             {!audioAuthorized && (
               <motion.div
+                key="audio-auth"
                 initial={{ opacity: 0, y: -20 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -20 }}
@@ -406,19 +471,18 @@ export const Dashboard: React.FC = () => {
           <div className="absolute bottom-3 right-3 w-10 h-10 border-r-2 border-b-2 border-primary/15 rounded-br pointer-events-none" />
         </div>
 
-        {/* BOTTOM STATUS BAR */}
-        <footer className="flex-shrink-0 flex items-center justify-between px-6 py-1.5 border-t border-primary/10 bg-black/40 text-[7px] tracking-[0.2em] text-primary/30 font-bold">
+        <footer className="flex-shrink-0 flex items-center justify-between px-6 py-3 border-t border-primary/20 bg-black/60 text-[10px] md:text-xs tracking-[0.2em] text-primary/40 font-bold z-20">
           <div className="flex items-center gap-4">
-            <span className="flex items-center gap-1">
-              <span className="w-1 h-1 bg-green-500 rounded-full animate-pulse" />
+            <span className="flex items-center gap-2">
+              <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse shadow-[0_0_10px_rgba(34,197,94,0.8)]" />
               ONLINE
             </span>
             <span className="hidden sm:inline">NEURAL-LINK: ACTIVE</span>
           </div>
           <div className="flex items-center gap-4">
-            <span className="hidden md:inline text-primary/40">SYSTEM_UPTIME: 99.9%</span>
-            <span className="text-primary/20">|</span>
-            <span className="text-primary/50 tracking-[0.3em]">JARVIS_PROTOCOL_V2.4</span>
+            <span className="hidden lg:inline text-primary/50">SYSTEM_UPTIME: 99.9%</span>
+            <span className="hidden lg:inline text-primary/30">|</span>
+            <span className="text-primary/70 tracking-[0.3em]">JARVIS_PROTOCOL_V2.4</span>
           </div>
         </footer>
       </div>
@@ -428,29 +492,29 @@ export const Dashboard: React.FC = () => {
         {chatOpen && (
           <motion.div
             key="chat"
-            initial={{ x: 380, opacity: 0 }}
+            initial={{ x: 400, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
-            exit={{ x: 380, opacity: 0 }}
+            exit={{ x: 400, opacity: 0 }}
             transition={{ type: 'spring', stiffness: 260, damping: 30 }}
-            className="relative z-10 w-80 min-w-[300px] flex flex-col bg-black/60 border-l border-primary/10 backdrop-blur-md"
+            className="absolute md:relative z-40 md:z-10 right-0 top-0 bottom-0 w-full sm:w-96 flex flex-col bg-black/95 md:bg-black/60 border-l border-primary/10 backdrop-blur-xl"
           >
             {/* Chat Header */}
-            <div className="flex items-center justify-between px-4 py-3 border-b border-primary/10 flex-shrink-0">
-              <div className="flex items-center gap-2">
-                <MessageSquare className="w-4 h-4 text-primary/60" />
-                <span className="text-[9px] tracking-[0.25em] uppercase text-primary/60">System Communication</span>
+            <div className="flex items-center justify-between px-6 py-4 border-b border-primary/10 flex-shrink-0">
+              <div className="flex items-center gap-3">
+                <MessageSquare className="w-5 h-5 text-primary/60" />
+                <span className="text-[12px] md:text-sm font-bold tracking-[0.25em] uppercase text-primary/60">System Communication</span>
               </div>
-              <button onClick={() => setChatOpen(false)} className="text-primary/30 hover:text-primary/70 p-1 rounded transition-colors">
-                <X className="w-4 h-4" />
+              <button onClick={() => setChatOpen(false)} className="text-primary/30 hover:text-white bg-primary/5 hover:bg-primary/30 p-2 rounded transition-colors">
+                <X className="w-5 h-5" />
               </button>
             </div>
 
             {/* Messages */}
-            <div className="flex-1 overflow-y-auto p-3 space-y-3 custom-scrollbar">
+            <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
               {messages.length === 0 && (
-                <div className="h-full flex flex-col items-center justify-center gap-2 opacity-20">
-                  <MessageSquare className="w-8 h-8" />
-                  <p className="text-[9px] tracking-widest uppercase">No exchanges yet</p>
+                <div className="h-full flex flex-col items-center justify-center gap-3 opacity-30">
+                  <MessageSquare className="w-10 h-10" />
+                  <p className="text-xs tracking-[0.3em] font-bold uppercase">No exchanges yet</p>
                 </div>
               )}
               {messages.map((m, i) => (
@@ -460,13 +524,13 @@ export const Dashboard: React.FC = () => {
                   animate={{ x: 0, opacity: 1 }}
                   className={`flex flex-col ${m.role === 'user' ? 'items-end' : 'items-start'}`}
                 >
-                  <span className={`text-[7px] mb-1 uppercase tracking-widest ${m.role === 'user' ? 'text-primary/40' : 'text-blue-400/50'}`}>
+                  <span className={`text-[10px] md:text-[11px] font-bold mb-1 uppercase tracking-widest ${m.role === 'user' ? 'text-primary/60' : 'text-blue-400/80'}`}>
                     {m.role === 'user' ? 'OPERATOR' : 'JARVIS'}
                   </span>
-                  <div className={`px-3 py-2 text-[10px] leading-relaxed rounded-sm border max-w-[90%]
+                  <div className={`px-4 py-3 text-xs md:text-sm leading-relaxed rounded-md border shadow-lg max-w-[95%]
                     ${m.role === 'user'
-                      ? 'bg-primary/5 border-primary/15 text-primary/80 text-right'
-                      : 'bg-blue-500/5 border-blue-500/15 text-blue-300/80 text-left'
+                      ? 'bg-primary/10 border-primary/30 text-primary text-right shadow-[0_0_15px_rgba(0,243,255,0.1)]'
+                      : 'bg-blue-500/10 border-blue-500/30 text-blue-100 text-left shadow-[0_0_15px_rgba(59,130,246,0.1)]'
                     }`}>
                     {m.content}
                   </div>
@@ -476,23 +540,23 @@ export const Dashboard: React.FC = () => {
             </div>
 
             {/* Input */}
-            <div className="flex-shrink-0 p-3 border-t border-primary/10">
-              <div className="flex items-center gap-2 bg-black/40 border border-primary/15 rounded-sm px-3 py-2 focus-within:border-primary/40 transition-all">
+            <div className="flex-shrink-0 p-4 border-t border-primary/20 bg-black/60">
+              <div className="flex items-center gap-3 bg-black/80 border-2 border-primary/30 rounded-md px-4 py-3 focus-within:border-primary/70 focus-within:shadow-[0_0_15px_rgba(0,243,255,0.2)] transition-all">
                 <input
                   ref={inputRef}
                   type="text"
                   value={inputVal}
                   onChange={e => setInputVal(e.target.value)}
-                  placeholder="Manual override..."
+                  placeholder="Manual override input..."
                   onKeyDown={e => e.key === 'Enter' && handleSend()}
-                  className="flex-1 bg-transparent text-[10px] outline-none text-primary/70 placeholder:text-primary/20 font-mono"
+                  className="flex-1 bg-transparent text-sm md:text-base font-bold outline-none text-primary placeholder:text-primary/30 font-mono"
                 />
                 <button
                   onClick={handleSend}
                   disabled={!inputVal.trim()}
-                  className="text-primary/40 hover:text-primary transition-colors disabled:opacity-20"
+                  className="text-primary/60 hover:text-white bg-primary/10 hover:bg-primary/40 p-2 rounded-md transition-all disabled:opacity-20"
                 >
-                  <Send className="w-3.5 h-3.5" />
+                  <Send className="w-5 h-5" />
                 </button>
               </div>
             </div>

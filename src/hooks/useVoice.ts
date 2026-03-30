@@ -119,7 +119,7 @@ export const useVoice = () => {
   }, [speakNative]);
 
   const startRecognition = useCallback(() => {
-    if (!recognitionRef.current || isSpeakingRef.current) return;
+    if (!recognitionRef.current) return;
     try {
       recognitionRef.current.start();
     } catch (e) {
@@ -148,6 +148,13 @@ export const useVoice = () => {
 
       // Update UI immediately (makes it feel fast and responsive)
       setRawTranscript(trimText);
+
+      // Interrupt JARVIS if speaking and user starts talking loudly
+      if (trimText.length > 3 && isSpeakingRef.current) {
+        window.speechSynthesis.cancel();
+        kokoroService.stop && kokoroService.stop();
+        setIsSpeaking(false);
+      }
 
       // Crucial Fix: Don't process wake words or commands until the user finishes the sentence!
       // This prevents chopping off "Jarvis turn on the lights" at "Jarvis".
@@ -235,9 +242,9 @@ export const useVoice = () => {
     };
 
     recognition.onend = () => {
-      // ONLY restart if we aren't currently speaking or processing a wake word
-      if (!isSpeakingRef.current && !isProcessingWakeWordRef.current) {
-        setTimeout(() => startRecognition(), 300);
+      // Always restart immediately to keep mic active, unless processing a wake word trigger
+      if (!isProcessingWakeWordRef.current) {
+        setTimeout(() => startRecognition(), 100);
       }
     };
 
@@ -250,11 +257,11 @@ export const useVoice = () => {
     recognitionRef.current = recognition;
     setIsListening(true);
 
-    // Heartbeat to keep it alive
+    // Reduced heartbeat frequency to stop glitching mic symbol in browser
     if (heartbeatRef.current) clearInterval(heartbeatRef.current);
     heartbeatRef.current = setInterval(() => {
       startRecognition();
-    }, 2500);
+    }, 10000);
   }, [startRecognition, speak]);
 
   // Restart when speaking ends

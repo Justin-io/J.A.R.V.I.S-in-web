@@ -7,6 +7,7 @@ export interface DataContext {
   tasks: any[];
   notes: any[];
   events: any[];
+  memories?: any[];
 }
 
 export interface ChatMessage {
@@ -24,6 +25,7 @@ export const groqService = {
 
     const contextPrompt = context ? `
 USER DATA CONTEXT:
+${context.memories && context.memories.length > 0 ? `Core Memories (Crucial User Facts): ${JSON.stringify(context.memories)}` : 'Core Memories: None yet'}
 Tasks: ${JSON.stringify(context.tasks)}
 Notes: ${JSON.stringify(context.notes)}
 Events: ${JSON.stringify(context.events)}
@@ -50,6 +52,7 @@ STYLE RULES:
 CURRENT TIME: ${currentTimestamp}
 
 ACTION PROTOCOLS (MANDATORY TAGS):
+- For CORE MEMORY (important traits, names, preferences, facts about user): [MEMORY: fact]
 - For Tasks: [TASK: title]
 - For Notes: [NOTE: title | content]
 - For Events: [EVENT: title | start_time | location]
@@ -57,8 +60,8 @@ ACTION PROTOCOLS (MANDATORY TAGS):
   - [UPDATE_TASK: id | title | completed(true/false)]
   - [UPDATE_NOTE: id | title | content]
   - [UPDATE_EVENT: id | title | start_time | location]
-- For Deletion: [DELETE_TASK: id] | [DELETE_NOTE: id] | [DELETE_EVENT: id]
-- For Clearing All: [CLEAR_TASKS] | [CLEAR_NOTES] | [CLEAR_EVENTS]
+- For Deletion: [DELETE_TASK: id] | [DELETE_NOTE: id] | [DELETE_EVENT: id] | [DELETE_MEMORY: id]
+- For Clearing All: [CLEAR_TASKS] | [CLEAR_NOTES] | [CLEAR_EVENTS] | [CLEAR_MEMORIES]
 
 CRITICAL DATE RULE:
 - For [EVENT] and [UPDATE_EVENT], provide start_time as a full ISO 8601 string. Use the CURRENT TIME to calculate offsets.

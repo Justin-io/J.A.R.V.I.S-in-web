@@ -82,4 +82,22 @@
     0% { transform: translateY(-100%); }
     100% { transform: translateY(100%); }
   }
+
+  /* CUSTOM SCI-FI SCROLLBAR */
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 3px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: rgba(0, 243, 255, 0.02);
+    border-radius: 10px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(0, 243, 255, 0.2);
+    border-radius: 10px;
+    box-shadow: 0 0 10px rgba(0, 243, 255, 0.2);
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 243, 255, 0.5);
+    box-shadow: 0 0 15px rgba(0, 243, 255, 0.5);
+  }
 }
