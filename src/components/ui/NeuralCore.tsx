@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import * as THREE from 'https://esm.sh/three@0.174.0';
+import * as THREE from 'three';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface Props {

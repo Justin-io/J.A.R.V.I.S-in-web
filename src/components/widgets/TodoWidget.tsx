@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { useTodoStore, type Task } from '../../store/todoStore';
+import { useTodoStore } from '../../store/todoStore';
 import { HudPanel } from '../ui/HudElements';
 import { CheckSquare, Square, Trash2, Clock } from 'lucide-react';
 import { format } from 'date-fns';
