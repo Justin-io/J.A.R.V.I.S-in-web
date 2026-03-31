@@ -2,10 +2,12 @@ import React, { useState } from 'react';
 import { useAuthStore } from '../store/authStore';
 import { HudPanel, HudButton } from './ui/HudElements';
 import { Key, ShieldAlert } from 'lucide-react';
+import { useVoice } from '../hooks/useVoice';
 import { motion } from 'framer-motion';
 
 export const AuthScreen: React.FC = () => {
   const { loginWithPassword } = useAuthStore();
+  const { initAudio } = useVoice();
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -16,6 +18,7 @@ export const AuthScreen: React.FC = () => {
     setError(null);
 
     try {
+      initAudio();
       const success = await loginWithPassword(password);
       if (!success) {
         throw new Error('INVALID CLEARANCE CODE');

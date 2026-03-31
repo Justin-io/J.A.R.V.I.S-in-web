@@ -98,6 +98,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
 
       return response;
     } catch (err: any) {
+      console.error("CHAT_SEND_ERROR:", err);
       set({ isThinking: false, error: err.message });
       return null;
     }

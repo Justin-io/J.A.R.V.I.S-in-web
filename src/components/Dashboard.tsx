@@ -24,13 +24,13 @@ export const Dashboard: React.FC = () => {
   const { user, signOut } = useAuthStore();
   const { messages, sendMessage, isThinking, fetchMessages, subscribeToMessages } = useChatStore();
   const {
-    listen, speak, isListening, transcript, setTranscript,
-    rawTranscript, isSpeaking, audioAuthorized, toggleAudio, isWaitingForCommand
+    handleMicClick, speak, isListening, transcript, setTranscript,
+    rawTranscript, isSpeaking, isWaitingForCommand, audioAuthorized, initAudio, toggleAudio
   } = useVoice();
-  const { addTask, updateTask, deleteTask, clearTasks, tasks, fetchTasks } = useTodoStore();
-  const { addNote, updateNote, deleteNote, clearNotes, notes, fetchNotes } = useNoteStore();
-  const { addEvent, updateEvent, deleteEvent, clearEvents, events, fetchEvents } = useCalendarStore();
-  const { memories, addMemory, removeMemory, clearMemories, fetchMemories } = useMemoryStore();
+  const { addTask, updateTask, deleteTask, clearTasks, fetchTasks } = useTodoStore();
+  const { addNote, updateNote, deleteNote, clearNotes, fetchNotes } = useNoteStore();
+  const { addEvent, updateEvent, deleteEvent, clearEvents, fetchEvents } = useCalendarStore();
+  const { fetchMemories, addMemory, removeMemory, clearMemories } = useMemoryStore();
   const chatEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const [chatOpen, setChatOpen] = useState(false);
@@ -45,7 +45,7 @@ export const Dashboard: React.FC = () => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  useEffect(() => { listen(); }, [listen]);
+  useEffect(() => { handleMicClick(); }, [handleMicClick]);
 
   // Fetch all data from Supabase on boot
   useEffect(() => {
@@ -116,7 +116,12 @@ export const Dashboard: React.FC = () => {
       }
     }
 
-    const response = await sendMessage(content, user.id, { tasks, notes, events, memories });
+    const response = await sendMessage(content, user.id, { 
+      tasks: useTodoStore.getState().tasks, 
+      notes: useNoteStore.getState().notes, 
+      events: useCalendarStore.getState().events, 
+      memories: useMemoryStore.getState().memories 
+    });
     console.log("JARVIS RAW RESPONSE:", response);
 
     if (response) {
@@ -383,24 +388,51 @@ export const Dashboard: React.FC = () => {
         {/* CORE AREA */}
         <div className="flex-1 flex items-center justify-center relative overflow-hidden">
 
-          {/* Audio authorization banner */}
+          {/* NEURAL INITIALIZATION MODAL */}
           <AnimatePresence>
             {!audioAuthorized && (
-              <motion.div
-                key="audio-auth"
-                initial={{ opacity: 0, y: -20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                className="absolute top-4 left-1/2 -translate-x-1/2 z-30 flex items-center gap-3 bg-red-950/80 border border-red-500/40 px-5 py-3 rounded-sm backdrop-blur-md text-[10px] tracking-wider"
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 z-[100] backdrop-blur-2xl bg-black/90 flex items-center justify-center p-6"
               >
-                <Zap className="w-4 h-4 text-red-400 animate-pulse flex-shrink-0" />
-                <span className="text-red-300">AUDIO RESTRICTED BY BROWSER POLICY</span>
-                <button
-                  onClick={toggleAudio}
-                  className="ml-2 px-3 py-1 bg-red-500/20 border border-red-500/50 text-red-300 hover:bg-red-500/40 rounded-sm transition-all text-[8px] tracking-widest font-bold"
-                >
-                  AUTHORIZE
-                </button>
+                <div className="max-w-md w-full text-center space-y-8">
+                  <motion.div
+                    initial={{ scale: 0.8, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    transition={{ delay: 0.2 }}
+                    className="relative inline-block"
+                  >
+                    <div className="absolute inset-0 bg-primary/20 blur-[50px] rounded-full animate-pulse"></div>
+                    <div className="relative w-32 h-32 border-2 border-primary/30 rounded-full flex items-center justify-center mx-auto">
+                      <Zap className="w-16 h-16 text-primary animate-pulse" />
+                      <div className="absolute inset-[-10px] border border-primary/20 rounded-full animate-[spin_10s_linear_infinite]"></div>
+                      <div className="absolute inset-[-20px] border border-primary/10 border-dashed rounded-full animate-[spin_20s_linear_reverse_infinite]"></div>
+                    </div>
+                  </motion.div>
+
+                  <div className="space-y-4">
+                    <h2 className="text-2xl font-bold tracking-[0.3em] text-primary hud-text-glow uppercase">Neural Link Severed</h2>
+                    <p className="text-[10px] text-primary/60 tracking-[0.2em] leading-relaxed uppercase">
+                      Browser security protocols have isolated the neural core. Manual initialization is required to re-establish the auditory link.
+                    </p>
+                  </div>
+
+                  <button
+                    onClick={toggleAudio}
+                    className="w-full py-6 bg-primary/10 border-2 border-primary/40 text-primary font-bold tracking-[0.5em] text-sm uppercase hover:bg-primary/20 hover:border-primary transition-all duration-500 shadow-[0_0_30px_rgba(0,243,255,0.1)] relative group overflow-hidden"
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-primary/5 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
+                    INITIALIZE NEURAL LINK
+                  </button>
+
+                  <div className="flex items-center justify-center gap-4 text-[8px] text-primary/30 tracking-[0.2em] uppercase">
+                    <span className="w-12 h-[1px] bg-primary/20"></span>
+                    Identity Locked: {user?.id.substring(0, 8)}...
+                    <span className="w-12 h-[1px] bg-primary/20"></span>
+                  </div>
+                </div>
               </motion.div>
             )}
           </AnimatePresence>
@@ -453,7 +485,7 @@ export const Dashboard: React.FC = () => {
 
             {/* Mic Button */}
             <button
-              onClick={listen}
+              onClick={handleMicClick}
               disabled={isListening || isThinking}
               className={`group relative w-16 h-16 rounded-full flex items-center justify-center transition-all duration-300 disabled:opacity-40
                 ${isListening

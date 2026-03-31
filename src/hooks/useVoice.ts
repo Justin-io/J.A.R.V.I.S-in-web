@@ -42,12 +42,34 @@ export const useVoice = () => {
     kokoroService.speak("System Initialized");
   }, []);
 
+  const initAudio = useCallback(() => {
+    if (audioAuthorized) return;
+    setAudioAuthorized(true);
+    // Briefly touch the audio context to satisfy browser policy
+    const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+    if (AudioContext) {
+      const ctx = new AudioContext();
+      ctx.resume();
+    }
+  }, [audioAuthorized]);
+
   const speakNative = useCallback((text: string) => {
+    if (!text) return;
+    
+    // Multi-cancel to ensure a clean state
+    window.speechSynthesis.cancel();
     window.speechSynthesis.cancel();
     
+    // 150ms delay is more reliable for mobile browsers to reset their audio engine
     setTimeout(() => {
-      const utterance = new SpeechSynthesisUtterance(text);
       const voices = window.speechSynthesis.getVoices();
+      if (voices.length === 0) {
+        // Retry once if voices are empty (common on first load)
+        setTimeout(() => speakNative(text), 100);
+        return;
+      }
+
+      const utterance = new SpeechSynthesisUtterance(text);
       
       const isMalayalam = /[\u0D00-\u0D7F]/.test(text);
       let selectedVoice = null;
@@ -71,13 +93,10 @@ export const useVoice = () => {
           voices.find(v => v.name.includes('Google') && v.name.toLowerCase().includes('male')) ||
           voices.find(v => v.name === 'Microsoft David - English (United States)') ||
           voices.find(v => v.name === 'Alex') ||
-          voices.find(v => v.name.includes('Daniel') && v.lang.startsWith('en')) ||
-          voices.find(v => v.name.includes('Male') && v.lang.startsWith('en') && !v.name.toLowerCase().includes('female')) ||
-          voices.find(v => v.lang.startsWith('en-GB') && !v.name.toLowerCase().includes('female')) ||
-          voices.find(v => v.lang.startsWith('en') && !v.name.toLowerCase().includes('female')) ||
+          voices.find(v => v.name.includes('Daniel')) ||
+          voices.find(v => v.name.includes('Male') && !v.name.toLowerCase().includes('female')) ||
           voices[0];
         
-        // Deeper Pitch for "Paul Bettany" style Jarvis
         utterance.pitch = 0.83; 
         utterance.rate = 1.02;
       }
@@ -87,14 +106,13 @@ export const useVoice = () => {
         utterance.lang = selectedVoice.lang;
       }
       
-      utterance.volume = 1;
-
+      utterance.volume = 1.0;
       utterance.onstart = () => setIsSpeaking(true);
       utterance.onend = () => setIsSpeaking(false);
       utterance.onerror = () => setIsSpeaking(false);
 
       window.speechSynthesis.speak(utterance);
-    }, 50);
+    }, 150);
   }, []);
 
   const speak = useCallback(async (text: string) => {
@@ -228,17 +246,18 @@ export const useVoice = () => {
         } else if (!isProcessingWakeWordRef.current) {
           // Pure wake word: "Buddy"
           isProcessingWakeWordRef.current = true;
-          try { recognition.stop(); } catch (e) { }
-
-          speak("Sir?");
-          setIsWaitingForCommand(true);
-          // Highlight the Wake Word so the user SEES it heard them!
           setRawTranscript(`>> ${matchedWord} << // AWAITING COMMAND...`);
+          
+          try { 
+            recognition.stop(); 
+          } catch (e) { }
 
-          // Clear processing flag after speaking starts or shortly after
-          setTimeout(() => { isProcessingWakeWordRef.current = false; }, 2000);
-
-          // The hard-coded 8000ms timeout has been removed. It is now handled by the inactivity timeout!
+          // Slight delay to allow recognition to fully stop before speaking
+          setTimeout(async () => {
+             await speak("Sir?");
+             setIsWaitingForCommand(true);
+             isProcessingWakeWordRef.current = false;
+          }, 300);
         }
       }
     };
@@ -282,5 +301,24 @@ export const useVoice = () => {
     }
   }, [isSpeaking, startRecognition]);
 
-  return { listen, speak, isListening, transcript, rawTranscript, isSpeaking, setTranscript, isWaitingForCommand, audioAuthorized, toggleAudio };
+  const handleMicClick = useCallback(() => {
+    // Satisfy browser audio policy + trigger recognition
+    initAudio();
+    listen();
+  }, [initAudio, listen]);
+
+  return { 
+    listen, 
+    handleMicClick, // New unified handler
+    speak, 
+    isListening, 
+    transcript, 
+    rawTranscript, 
+    isSpeaking, 
+    setTranscript, 
+    isWaitingForCommand, 
+    audioAuthorized, 
+    toggleAudio, 
+    initAudio 
+  };
 };
