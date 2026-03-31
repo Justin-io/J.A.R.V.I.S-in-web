@@ -25,7 +25,7 @@ export const Dashboard: React.FC = () => {
   const { messages, sendMessage, isThinking, fetchMessages, subscribeToMessages } = useChatStore();
   const {
     handleMicClick, speak, isListening, transcript, setTranscript,
-    rawTranscript, isSpeaking, isWaitingForCommand, audioAuthorized, initAudio, toggleAudio
+    rawTranscript, isSpeaking, isWaitingForCommand, audioAuthorized, toggleAudio
   } = useVoice();
   const { addTask, updateTask, deleteTask, clearTasks, fetchTasks } = useTodoStore();
   const { addNote, updateNote, deleteNote, clearNotes, fetchNotes } = useNoteStore();
