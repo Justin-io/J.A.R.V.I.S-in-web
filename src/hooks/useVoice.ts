@@ -58,26 +58,28 @@ export const useVoice = () => {
           voices.find(v => v.lang.startsWith('ml')) ||
           voices.find(v => v.name.toLowerCase().includes('malayalam'));
         
-        utterance.pitch = 1.0;
+        utterance.pitch = 0.9;
         utterance.rate = 1.0;
       }
 
       if (!selectedVoice) {
+        // High-Priority Male Voice Search (Jarvis Persona)
         selectedVoice =
           voices.find(v => v.name === 'Google UK English Male') ||
+          voices.find(v => v.name === 'English (United Kingdom) Male') ||
+          voices.find(v => v.name.includes('UK') && v.name.includes('Male')) ||
           voices.find(v => v.name.includes('Google') && v.name.toLowerCase().includes('male')) ||
           voices.find(v => v.name === 'Microsoft David - English (United States)') ||
           voices.find(v => v.name === 'Alex') ||
           voices.find(v => v.name.includes('Daniel') && v.lang.startsWith('en')) ||
-          voices.find(v => v.name.includes('Arthur') && v.lang.startsWith('en')) ||
-          voices.find(v => v.name.includes('Google') && v.lang.startsWith('en')) ||
-          voices.find(v => v.name.includes('Male') && v.lang.startsWith('en')) ||
-          voices.find(v => v.lang.startsWith('en-GB')) ||
-          voices.find(v => v.lang.startsWith('en')) ||
+          voices.find(v => v.name.includes('Male') && v.lang.startsWith('en') && !v.name.toLowerCase().includes('female')) ||
+          voices.find(v => v.lang.startsWith('en-GB') && !v.name.toLowerCase().includes('female')) ||
+          voices.find(v => v.lang.startsWith('en') && !v.name.toLowerCase().includes('female')) ||
           voices[0];
         
-        utterance.pitch = 0.9;
-        utterance.rate = 1.05;
+        // Deeper Pitch for "Paul Bettany" style Jarvis
+        utterance.pitch = 0.83; 
+        utterance.rate = 1.02;
       }
 
       if (selectedVoice) {
