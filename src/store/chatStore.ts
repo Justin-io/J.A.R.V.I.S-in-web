@@ -8,6 +8,7 @@ interface ChatState {
   error: string | null;
   fetchMessages: (userId: string) => Promise<void>;
   sendMessage: (content: string, userId: string, context?: DataContext) => Promise<string | null>;
+  subscribeToMessages: (userId: string) => any;
   clearHistory: (userId: string) => Promise<void>;
 }
 
@@ -24,15 +25,42 @@ export const useChatStore = create<ChatState>((set, get) => ({
       .order('created_at', { ascending: true });
 
     if (!error && data) {
-      // Map database rows to ChatMessage format
       const loadedMessages: ChatMessage[] = data.map((row: any) => ({
         role: row.role as 'user' | 'assistant',
         content: row.message
       }));
       set({ messages: loadedMessages });
-    } else {
-      console.error("SUPABASE_CHAT_FETCH_ERROR:", error);
     }
+  },
+
+  subscribeToMessages: (userId: string) => {
+    return supabase
+      .channel('chat-sync')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'conversations',
+          filter: `user_id=eq.${userId}`
+        },
+        (payload) => {
+          const newMessage: ChatMessage = {
+            role: payload.new.role,
+            content: payload.new.message
+          };
+          
+          set((state) => {
+            // Prevent duplicate messages if already added locally
+            const isDuplicate = state.messages.some(m => 
+              m.content === newMessage.content && m.role === newMessage.role
+            );
+            if (isDuplicate) return state;
+            return { messages: [...state.messages, newMessage] };
+          });
+        }
+      )
+      .subscribe();
   },
 
   sendMessage: async (content, userId, context) => {

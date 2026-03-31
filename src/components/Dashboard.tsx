@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useAuthStore } from '../store/authStore';
+import { supabase } from '../services/supabase';
 import { useChatStore } from '../store/chatStore';
 import { useVoice } from '../hooks/useVoice';
 import { CalendarWidget } from './widgets/CalendarWidget';
@@ -21,7 +22,7 @@ import { useMemoryStore } from '../store/memoryStore';
 
 export const Dashboard: React.FC = () => {
   const { user, signOut } = useAuthStore();
-  const { messages, sendMessage, isThinking, fetchMessages } = useChatStore();
+  const { messages, sendMessage, isThinking, fetchMessages, subscribeToMessages } = useChatStore();
   const {
     listen, speak, isListening, transcript, setTranscript,
     rawTranscript, isSpeaking, audioAuthorized, toggleAudio, isWaitingForCommand
@@ -56,8 +57,13 @@ export const Dashboard: React.FC = () => {
         fetchEvents(user.id),
         fetchMemories(user.id),
       ]).then(() => setDataLoaded(true));
+
+      const channel = subscribeToMessages(user.id);
+      return () => {
+        supabase.removeChannel(channel);
+      };
     }
-  }, [user, fetchMessages, fetchTasks, fetchNotes, fetchEvents, fetchMemories]);
+  }, [user, fetchMessages, subscribeToMessages, fetchTasks, fetchNotes, fetchEvents, fetchMemories]);
 
   // PUTER MOBILE AUTO-SETUP
   useEffect(() => {
