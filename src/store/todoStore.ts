@@ -56,6 +56,7 @@ export const useTodoStore = create<TodoState>((set) => ({
     }
   },
   deleteTask: async (id) => {
+    if (!id) return;
     const { error } = await supabase.from('tasks').delete().eq('id', id);
     if (!error) {
       set((state) => ({ tasks: state.tasks.filter((t) => t.id !== id) }));

@@ -56,6 +56,7 @@ export const useCalendarStore = create<CalendarState>((set) => ({
     }
   },
   deleteEvent: async (id) => {
+    if (!id) return;
     const { error } = await supabase.from('events').delete().eq('id', id);
     if (!error) {
       set((state) => ({ events: state.events.filter((e) => e.id !== id) }));

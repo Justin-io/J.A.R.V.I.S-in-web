@@ -131,10 +131,10 @@ export const MemoryWidget: React.FC = () => {
                   
                   {/* Floating Action Buttons */}
                   <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 flex gap-1 transition-opacity">
-                    <button onClick={() => { setEditingId(m.id); setEditVal(m.fact); }} className="p-1.5 bg-blue-500/10 border border-blue-500/30 text-blue-400 hover:bg-blue-500/20 rounded-sm transition-colors">
+                    <button onClick={() => { if (m.id) { setEditingId(m.id); setEditVal(m.fact); } }} className="p-1.5 bg-blue-500/10 border border-blue-500/30 text-blue-400 hover:bg-blue-500/20 rounded-sm transition-colors">
                       <Edit2 className="w-3 h-3" />
                     </button>
-                    {deletingId === m.id ? (
+                    {m.id && deletingId === m.id ? (
                       <div className="flex gap-1 animate-in slide-in-from-right-2">
                         <button onClick={() => setDeletingId(null)} className="p-1.5 bg-primary/10 border border-primary/30 text-primary hover:bg-primary/20 rounded-sm">
                           <X className="w-3 h-3" />
@@ -144,7 +144,7 @@ export const MemoryWidget: React.FC = () => {
                         </button>
                       </div>
                     ) : (
-                      <button onClick={() => setDeletingId(m.id)} className="p-1.5 bg-red-500/10 border border-red-500/30 text-red-500 hover:bg-red-500/20 rounded-sm transition-colors">
+                      <button onClick={() => m.id && setDeletingId(m.id)} className="p-1.5 bg-red-500/10 border border-red-500/30 text-red-500 hover:bg-red-500/20 rounded-sm transition-colors">
                         <Trash2 className="w-3 h-3" />
                       </button>
                     )}

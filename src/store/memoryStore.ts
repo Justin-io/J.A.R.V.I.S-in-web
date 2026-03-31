@@ -72,9 +72,12 @@ export const useMemoryStore = create<MemoryState>((set) => ({
   },
 
   removeMemory: async (id) => {
+    if (!id) return;
     const { error } = await supabase.from('memories').delete().eq('id', id);
     if (!error) {
-      set((state) => ({ memories: state.memories.filter((m) => m.id !== id) }));
+      set((state) => ({ 
+        memories: state.memories.filter((m) => m.id !== id) 
+      }));
     }
   },
 

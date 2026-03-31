@@ -54,6 +54,7 @@ export const useNoteStore = create<NoteState>((set) => ({
     }
   },
   deleteNote: async (id) => {
+    if (!id) return;
     const { error } = await supabase.from('notes').delete().eq('id', id);
     if (!error) {
       set((state) => ({ notes: state.notes.filter((n) => n.id !== id) }));
