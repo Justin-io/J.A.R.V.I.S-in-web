@@ -21,7 +21,7 @@ import { useMemoryStore } from '../store/memoryStore';
 
 export const Dashboard: React.FC = () => {
   const { user, signOut } = useAuthStore();
-  const { messages, sendMessage, isThinking } = useChatStore();
+  const { messages, sendMessage, isThinking, fetchMessages } = useChatStore();
   const {
     listen, speak, isListening, transcript, setTranscript,
     rawTranscript, isSpeaking, audioAuthorized, toggleAudio, isWaitingForCommand
@@ -50,13 +50,14 @@ export const Dashboard: React.FC = () => {
   useEffect(() => {
     if (user) {
       Promise.all([
+        fetchMessages(user.id),
         fetchTasks(user.id),
         fetchNotes(user.id),
         fetchEvents(user.id),
         fetchMemories(user.id),
       ]).then(() => setDataLoaded(true));
     }
-  }, [user, fetchTasks, fetchNotes, fetchEvents, fetchMemories]);
+  }, [user, fetchMessages, fetchTasks, fetchNotes, fetchEvents, fetchMemories]);
 
   // PUTER MOBILE AUTO-SETUP
   useEffect(() => {
