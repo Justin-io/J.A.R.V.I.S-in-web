@@ -98,53 +98,82 @@ export const MemoryWidget: React.FC = () => {
         {memories.length === 0 && !isAdding ? (
           <div className="flex flex-col items-center justify-center h-full text-primary/40 text-[10px] space-y-2 py-10 mt-2">
             <BrainCircuit className="w-8 h-8 opacity-20" />
-            <p>NO CORE FACTS STORED</p>
+            <p className="tracking-[0.3em]">NO CORE FACTS STORED</p>
           </div>
         ) : (
           memories.map((m, i) => (
-            <div key={m.id || `mem-${i}`} className={`group p-2 border-l-2 bg-primary/5 rounded-r-sm relative transition-all ${editingId === m.id ? 'border-primary shadow-[0_0_15px_rgba(0,243,255,0.1)]' : 'border-primary/30 hover:border-primary/60 hover:bg-primary/10'}`}>
+            <div 
+              key={m.id || `mem-${i}`} 
+              className={`group p-3 border border-primary/10 bg-gradient-to-r from-primary/[0.03] to-transparent rounded-sm relative transition-all duration-500
+                ${editingId === m.id 
+                  ? 'border-primary/50 bg-primary/10 shadow-[0_0_20px_rgba(0,243,255,0.15)] ring-1 ring-primary/20' 
+                  : 'hover:border-primary/40 hover:bg-primary/[0.08] hover:translate-x-1'
+                }`}
+            >
+              {/* Synapse Decoration */}
+              <div className="absolute left-0 top-0 bottom-0 w-[2px] bg-primary/20 group-hover:bg-primary/60 transition-colors shadow-[0_0_10px_rgba(0,243,255,0.3)]" />
+              
               {editingId === m.id ? (
-                <div className="space-y-2">
+                <div className="space-y-3">
                   <textarea
                     autoFocus
                     value={editVal}
                     onChange={(e) => setEditVal(e.target.value)}
-                    className="w-full bg-black/80 border border-primary/50 p-2 text-[10px] text-primary outline-none custom-scrollbar min-h-[50px] resize-none"
+                    className="w-full bg-black/80 border border-primary/50 p-2 text-[10px] text-primary outline-none custom-scrollbar min-h-[60px] resize-none font-mono"
                     onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), submitEdit(m.id))}
                   />
                   <div className="flex justify-end gap-2">
-                    <button onClick={() => setEditingId(null)} className="p-1.5 bg-red-500/10 border border-red-500/30 text-red-500 hover:bg-red-500/20 rounded-sm transition-colors">
+                    <button onClick={() => setEditingId(null)} className="p-1.5 bg-red-500/10 border border-red-500/30 text-red-500 hover:bg-red-500/20 rounded-sm transition-all">
                       <X className="w-3 h-3" />
                     </button>
-                    <button onClick={() => submitEdit(m.id)} className="p-1.5 bg-green-500/10 border border-green-500/30 text-green-500 hover:bg-green-500/20 rounded-sm transition-colors">
+                    <button onClick={() => submitEdit(m.id)} className="p-1.5 bg-green-500/10 border border-green-500/30 text-green-500 hover:bg-green-500/20 rounded-sm transition-all">
                       <Check className="w-3 h-3" />
                     </button>
                   </div>
                 </div>
               ) : (
-                <div className="pr-12">
-                  <p className="text-[10px] font-mono leading-relaxed text-primary/90 whitespace-pre-wrap">{m.fact}</p>
-                  <p className="text-[7px] text-primary/30 mt-1.5 uppercase tracking-widest flex items-center gap-1">
-                    <BrainCircuit className="w-2 h-2" /> 
-                    {m.created_at ? new Date(m.created_at).toLocaleDateString() : 'JUST NOW'}
+                <div className="pr-10 relative">
+                  <p className="text-[10px] font-mono leading-relaxed text-primary/90 whitespace-pre-wrap tracking-wide">
+                    {m.fact}
                   </p>
                   
+                  <div className="flex items-center justify-between mt-3">
+                    <div className="flex items-center gap-2">
+                      <div className="w-1 h-1 rounded-full bg-primary animate-pulse" />
+                      <p className="text-[7px] text-primary/40 uppercase tracking-[0.2em] font-bold">
+                        {m.created_at ? new Date(m.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : 'NEURAL_STORED'}
+                      </p>
+                    </div>
+                    <span className="text-[6px] text-primary/20 font-black tracking-widest group-hover:text-primary/40 transition-colors uppercase">
+                      ID: {m.id?.substring(0, 8) || 'TEMP'}
+                    </span>
+                  </div>
+                  
                   {/* Floating Action Buttons */}
-                  <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 flex gap-1 transition-opacity">
-                    <button onClick={() => { if (m.id) { setEditingId(m.id); setEditVal(m.fact); } }} className="p-1.5 bg-blue-500/10 border border-blue-500/30 text-blue-400 hover:bg-blue-500/20 rounded-sm transition-colors">
+                  <div className="absolute top-0 -right-8 group-hover:right-0 opacity-0 group-hover:opacity-100 flex flex-col gap-1 transition-all duration-300">
+                    <button 
+                      onClick={() => { if (m.id) { setEditingId(m.id); setEditVal(m.fact); } }} 
+                      className="p-1.5 bg-primary/10 border border-primary/20 text-primary hover:bg-primary hover:text-black rounded-sm transition-all shadow-[0_0_10px_rgba(0,243,255,0.2)]"
+                      title="REDEFINE"
+                    >
                       <Edit2 className="w-3 h-3" />
                     </button>
+                    
                     {m.id && deletingId === m.id ? (
-                      <div className="flex gap-1 animate-in slide-in-from-right-2">
-                        <button onClick={() => setDeletingId(null)} className="p-1.5 bg-primary/10 border border-primary/30 text-primary hover:bg-primary/20 rounded-sm">
-                          <X className="w-3 h-3" />
-                        </button>
-                        <button onClick={() => removeMemory(m.id)} className="p-1.5 bg-red-600/40 border border-red-600/60 text-white hover:bg-red-600/60 rounded-sm">
-                          <Check className="w-3 h-3" />
-                        </button>
-                      </div>
+                      <button 
+                        onClick={() => removeMemory(m.id)} 
+                        onMouseLeave={() => setDeletingId(null)}
+                        className="p-1.5 bg-red-600/40 border border-red-600/60 text-white hover:bg-red-600/80 rounded-sm animate-pulse"
+                        title="CONFIRM PURGE"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
                     ) : (
-                      <button onClick={() => m.id && setDeletingId(m.id)} className="p-1.5 bg-red-500/10 border border-red-500/30 text-red-500 hover:bg-red-500/20 rounded-sm transition-colors">
+                      <button 
+                        onClick={() => m.id && setDeletingId(m.id)} 
+                        className="p-1.5 bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/30 rounded-sm transition-all"
+                        title="PURGE"
+                      >
                         <Trash2 className="w-3 h-3" />
                       </button>
                     )}
@@ -154,6 +183,7 @@ export const MemoryWidget: React.FC = () => {
             </div>
           ))
         )}
+
       </div>
     </HudPanel>
   );

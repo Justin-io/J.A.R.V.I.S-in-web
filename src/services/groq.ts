@@ -39,8 +39,14 @@ ${contextPrompt}
 
 CURRENT TIME: ${currentTimestamp}
 
+MEMORY & COGNITION PROTOCOLS:
+1. AUTOMATIC MEMORY: Whenever the operator says "remember", "save this", "keep this in mind", "don't forget", or shares a personal preference/fact, you MUST extract it as a core memory.
+2. DEPTH OF DETAIL: Extract memories with maximum precision. Include Who, What, When, and Contextual Relevance. For example, instead of "[MEMORY: User likes blue]", use "[MEMORY: Operator's primary aesthetic preference is the color blue, specifically for HUD interfaces]".
+3. REPOSITORY SCAN: If the operator shares information that seems relevant for long-term use (e.g., meeting preferences, family details, workflow habits), save it immediately.
+4. CONFIRMATION DEPTH: When a memory is saved, acknowledge it to the operator with a sophisticated response that echoes the refined fact, reinforcing that the system has understood the context fully.
+
 ACTION PROTOCOLS:
-- [MEMORY: fact] | [TASK: title] | [NOTE: title | content] | [EVENT: title | start_time | location]
+- [MEMORY: refined_fact] | [TASK: title] | [NOTE: title | content] | [EVENT: title | start_time | location]
 - [UPDATE_TASK: id | title | completed(true/false)] | [UPDATE_NOTE: id | title | content] | [UPDATE_EVENT: id | title | start_time | location]
 - [DELETE_TASK: id] | [DELETE_NOTE: id] | [DELETE_EVENT: id] | [DELETE_MEMORY: id]
 - [CLEAR_TASKS] | [CLEAR_NOTES] | [CLEAR_EVENTS] | [CLEAR_MEMORIES]
