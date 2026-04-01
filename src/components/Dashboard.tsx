@@ -19,6 +19,8 @@ import { useTodoStore } from '../store/todoStore';
 import { useNoteStore } from '../store/noteStore';
 import { useCalendarStore } from '../store/calendarStore';
 import { useMemoryStore } from '../store/memoryStore';
+import { useTimerStore } from '../store/timerStore';
+import { TimerWidget } from './widgets/TimerWidget';
 
 export const Dashboard: React.FC = () => {
   const { user, signOut } = useAuthStore();
@@ -31,6 +33,7 @@ export const Dashboard: React.FC = () => {
   const { addNote, updateNote, deleteNote, clearNotes, fetchNotes } = useNoteStore();
   const { addEvent, updateEvent, deleteEvent, clearEvents, fetchEvents } = useCalendarStore();
   const { fetchMemories, addMemory, removeMemory, clearMemories } = useMemoryStore();
+  const { timers, addTimer, addAlarm, removeTimer, markFired, fetchTimers } = useTimerStore();
   const chatEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const [chatOpen, setChatOpen] = useState(false);
@@ -45,7 +48,31 @@ export const Dashboard: React.FC = () => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  useEffect(() => { handleMicClick(); }, [handleMicClick]);
+
+  // Auto-respond when timer/alarm arrives
+  useEffect(() => {
+    const interval = setInterval(() => {
+      timers.forEach((timer) => {
+        const isExpired = new Date(timer.endTime).getTime() <= Date.now();
+        if (isExpired && !timer.fired) {
+          markFired(timer.id);
+          const type = timer.isAlarm ? 'alarm' : 'timer';
+          const alertMsg = `Sir, the ${type} for "${timer.title || 'unnamed task'}" has reached zero.`;
+          speak(alertMsg);
+          
+          if (user) {
+            useChatStore.getState().addMessage(alertMsg, 'assistant', user.id);
+          }
+
+          // Auto-remove from list after a short delay
+          setTimeout(() => {
+            removeTimer(timer.id);
+          }, 10000);
+        }
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [timers, speak, markFired, user, removeTimer]);
 
   // Fetch all data from Supabase on boot
   useEffect(() => {
@@ -56,6 +83,7 @@ export const Dashboard: React.FC = () => {
         fetchNotes(user.id),
         fetchEvents(user.id),
         fetchMemories(user.id),
+        fetchTimers(user.id),
       ]).then(() => setDataLoaded(true));
 
       const channel = subscribeToMessages(user.id);
@@ -90,11 +118,11 @@ export const Dashboard: React.FC = () => {
     }
   }, [transcript, setTranscript]);
 
-  // Boot Sequence Briefing — waits for data to load first
+  // Automatic data-link sync confirmed. No boot monologue.
   useEffect(() => {
     if (user && !booted.current && dataLoaded) {
       booted.current = true;
-      handleUserAction("System initialized. Give a very short, direct 1-sentence greeting. Only mention schedule/tasks if something is urgently pending. Do not list empty data.");
+      console.log("SYSTEM_SUCCESS: Neural data-link established.");
     }
   }, [user, dataLoaded]);
 
@@ -139,6 +167,8 @@ export const Dashboard: React.FC = () => {
       const delEventRegex = /\[DELETE_EVENT:\s*(.*?)\]/gi;
       const memoryRegex = /\[MEMORY:\s*(.*?)\]/gi;
       const delMemoryRegex = /\[DELETE_MEMORY:\s*(.*?)\]/gi;
+      const timerRegex = /\[TIMER:\s*(\d+)\s*\|\s*(.*?)\]/gi;
+      const alarmRegex = /\[ALARM:\s*(.*?)\|\s*(.*?)\]/gi;
 
       let match;
 
@@ -162,6 +192,14 @@ export const Dashboard: React.FC = () => {
       }
       while ((match = memoryRegex.exec(response)) !== null) {
         await addMemory(match[1].trim(), user.id);
+        spokenResponse = spokenResponse.replace(match[0], '');
+      }
+      while ((match = timerRegex.exec(response)) !== null) {
+        await addTimer(match[2].trim(), parseInt(match[1].trim()), user.id);
+        spokenResponse = spokenResponse.replace(match[0], '');
+      }
+      while ((match = alarmRegex.exec(response)) !== null) {
+        await addAlarm(match[2].trim(), match[1].trim(), user.id);
         spokenResponse = spokenResponse.replace(match[0], '');
       }
 
@@ -306,6 +344,7 @@ export const Dashboard: React.FC = () => {
             <div className="flex-1 overflow-y-auto p-3 space-y-3 custom-scrollbar">
               {user && (
                 <>
+                  <TimerWidget />
                   <MemoryWidget />
                   <CalendarWidget userId={user.id} />
                   <TodoWidget userId={user.id} />

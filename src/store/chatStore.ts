@@ -9,6 +9,7 @@ interface ChatState {
   fetchMessages: (userId: string) => Promise<void>;
   sendMessage: (content: string, userId: string, context?: DataContext) => Promise<string | null>;
   subscribeToMessages: (userId: string) => any;
+  addMessage: (content: string, role: 'user' | 'assistant', userId: string) => Promise<void>;
   clearHistory: (userId: string) => Promise<void>;
 }
 
@@ -113,5 +114,16 @@ export const useChatStore = create<ChatState>((set, get) => ({
     if (!error) {
       set({ messages: [] });
     }
+  },
+
+  addMessage: async (content: string, role: 'user' | 'assistant', userId: string) => {
+    const newMessage: ChatMessage = { role, content };
+    set((state) => ({ messages: [...state.messages, newMessage] }));
+    
+    await supabase.from('conversations').insert({
+      user_id: userId,
+      message: content,
+      role: role
+    });
   },
 }));

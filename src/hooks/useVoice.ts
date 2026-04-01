@@ -1,5 +1,4 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { kokoroService } from '../services/kokoro';
 
 // Web Speech API interfaces
 declare global {
@@ -23,11 +22,6 @@ export const useVoice = () => {
   const isProcessingWakeWordRef = useRef(false);
   const awaitingTimeoutRef = useRef<any>(null);
 
-  // Initialize Kokoro on mount
-  useEffect(() => {
-    kokoroService.init();
-  }, []);
-
   // Sync refs with state
   useEffect(() => {
     isWaitingForCommandRef.current = isWaitingForCommand;
@@ -36,11 +30,6 @@ export const useVoice = () => {
   useEffect(() => {
     isSpeakingRef.current = isSpeaking;
   }, [isSpeaking]);
-
-  const toggleAudio = useCallback(() => {
-    setAudioAuthorized(true);
-    kokoroService.speak("System Initialized");
-  }, []);
 
   const initAudio = useCallback(() => {
     if (audioAuthorized) return;
@@ -115,27 +104,13 @@ export const useVoice = () => {
     }, 150);
   }, []);
 
+  const toggleAudio = useCallback(() => {
+    initAudio();
+    speakNative("System Initialized");
+  }, [initAudio, speakNative]);
+
   const speak = useCallback(async (text: string) => {
-    // Detect if text contains Malayalam characters (Unicode range 0D00-0D7F)
-    const isMalayalam = /[\u0D00-\u0D7F]/.test(text);
-
-    if (isMalayalam) {
-      speakNative(text);
-      return;
-    }
-
-    setIsSpeaking(true);
-    try {
-      const success = await kokoroService.speak(text);
-      if (!success) {
-        throw new Error("KOKORO_NOT_READY");
-      }
-    } catch (e) {
-      // Silently handle fallback
-      speakNative(text);
-    } finally {
-      setIsSpeaking(false);
-    }
+     speakNative(text);
   }, [speakNative]);
 
   const startRecognition = useCallback(() => {
@@ -172,7 +147,6 @@ export const useVoice = () => {
       // Interrupt JARVIS if speaking and user starts talking loudly
       if (trimText.length > 3 && isSpeakingRef.current) {
         window.speechSynthesis.cancel();
-        kokoroService.stop && kokoroService.stop();
         setIsSpeaking(false);
       }
 
